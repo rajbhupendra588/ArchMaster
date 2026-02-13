@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronRight, 
   Menu, 
@@ -21,7 +21,8 @@ import {
   CloudRain,
   Info,
   Server,
-  Zap
+  Zap,
+  CheckCircle2
 } from 'lucide-react';
 import { SYSTEM_TOPICS } from './constants';
 import { HLDTopic, ChatMessage, SimulationMode } from './types';
@@ -81,6 +82,20 @@ const App: React.FC = () => {
       setIsChatLoading(false);
     }
   };
+
+  // Helper to structure the explanation into steps
+  const hldSteps = useMemo(() => {
+    if (!topicData?.fullExplanation) return [];
+    // Split by double newline and filter empty strings
+    const segments = topicData.fullExplanation.split(/\n\n+/).filter(s => s.trim().length > 0);
+    return segments.map((text, index) => {
+      // Try to extract title if formatted like "Step X: Title"
+      const match = text.match(/Step\s+\d+:\s*(.*)\n?/i);
+      const title = match ? match[1] : `Component Phase ${index + 1}`;
+      const content = match ? text.replace(match[0], '').trim() : text.trim();
+      return { title, content };
+    });
+  }, [topicData?.fullExplanation]);
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
@@ -259,8 +274,30 @@ const App: React.FC = () => {
                           <p className="text-slate-500 font-bold text-lg mt-1">Core architectural logic and scalability patterns.</p>
                         </div>
                       </div>
-                      <div className="bg-white p-14 rounded-[4rem] border border-slate-100 shadow-sm text-slate-700 leading-relaxed whitespace-pre-wrap text-xl font-medium tracking-tight">
-                        {topicData?.fullExplanation}
+                      
+                      {/* Structured Step-by-Step Detail Description */}
+                      <div className="space-y-12">
+                        {hldSteps.map((step, idx) => (
+                          <div key={idx} className="flex gap-10 group/step">
+                            <div className="flex flex-col items-center shrink-0">
+                               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-600/20 group-hover/step:scale-110 transition-transform z-10">
+                                 {idx + 1}
+                               </div>
+                               {idx < hldSteps.length - 1 && (
+                                 <div className="w-1 flex-1 bg-slate-100 my-4 rounded-full group-hover/step:bg-blue-100 transition-colors" />
+                               )}
+                            </div>
+                            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex-1 group-hover/step:border-blue-200 transition-colors">
+                               <div className="flex items-center gap-3 mb-4">
+                                  <CheckCircle2 size={20} className="text-blue-500" />
+                                  <h4 className="text-2xl font-black text-slate-900 tracking-tight">{step.title}</h4>
+                               </div>
+                               <p className="text-lg text-slate-600 leading-relaxed font-medium">
+                                 {step.content}
+                               </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </section>
                   </div>

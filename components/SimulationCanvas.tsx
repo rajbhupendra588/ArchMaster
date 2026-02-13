@@ -19,21 +19,29 @@ const NODES: ComponentNode[] = [
   { id: 'queue', name: 'Task Queue', type: 'queue', x: 530, y: 210 },
 ];
 
+const NODE_DESCRIPTIONS: Record<string, string> = {
+  client: "External entity initiating requests via HTTPS.",
+  lb: "Distributes incoming traffic across available server nodes.",
+  api: "Handles business logic, authentication, and routing.",
+  cache: "High-speed memory store for frequently accessed data.",
+  db: "Primary persistent data layer with transaction support.",
+  queue: "Asynchronous processing unit for non-blocking tasks."
+};
+
 const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) => {
   const [activeStepIndex, setActiveStepIndex] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
 
   const steps = useMemo(() => {
     return (mode === SimulationMode.SUNNY ? useCase?.sunnySteps : useCase?.rainySteps) || [];
   }, [useCase, mode]);
 
-  // CRITICAL: Reset the simulation whenever the steps list changes (switching mode or use case)
   useEffect(() => {
     setActiveStepIndex(-1);
     setIsPlaying(false);
   }, [steps]);
 
-  // Unique connections derived from steps to draw background wires
   const activeConnections = useMemo(() => {
     const pairs = new Set<string>();
     steps.forEach(step => {
@@ -67,7 +75,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
   };
 
   const handleNodeClick = (nodeId: string) => {
-    // If the next step starts from this node, trigger it
     const nextStepData = steps[activeStepIndex + 1];
     if (nextStepData && nextStepData.from === nodeId && !isPlaying) {
       nextStep();
@@ -76,23 +83,50 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
 
   const getPos = (id: string) => {
     const node = NODES.find(n => n.id === id);
-    if (!node) return NODES[0]; // Fallback if AI provides invalid ID
+    if (!node) return NODES[0];
     return node;
   };
 
+  const hoveredNode = useMemo(() => NODES.find(n => n.id === hoveredNodeId), [hoveredNodeId]);
+
   return (
     <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl relative min-h-[500px] border border-slate-800">
-      {/* HUD Overlay */}
-      <div className="absolute top-6 left-8 right-8 flex justify-between items-start z-10">
+      {/* Tooltip Overlay */}
+      <AnimatePresence>
+        {hoveredNode && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="absolute z-20 pointer-events-none"
+            style={{ 
+              left: `${(hoveredNode.x / 600) * 100}%`, 
+              top: `${(hoveredNode.y / 300) * 100}%`,
+              transform: 'translate(-50%, -120%)'
+            }}
+          >
+            <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-white/20 min-w-[180px]">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-1">{hoveredNode.type}</div>
+              <div className="text-sm font-black text-slate-900 mb-1">{hoveredNode.name}</div>
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                {NODE_DESCRIPTIONS[hoveredNode.id] || "System Component"}
+              </p>
+              <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45 border-b border-r border-white/20"></div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="absolute top-6 left-8 right-8 flex justify-between items-start z-10 pointer-events-none">
         <div className="space-y-1">
           <h4 className="text-white text-lg font-black tracking-tight">{useCase?.title}</h4>
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full w-fit text-[10px] font-black uppercase tracking-widest border ${mode === SimulationMode.SUNNY ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full w-fit text-[10px] font-black uppercase tracking-widest border pointer-events-auto ${mode === SimulationMode.SUNNY ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
             {mode === SimulationMode.SUNNY ? <Sun size={12}/> : <CloudRain size={12}/>}
             {mode === SimulationMode.SUNNY ? 'Sunny Scenario' : 'Rainy Scenario'}
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 pointer-events-auto">
           <button 
             onClick={() => setIsPlaying(!isPlaying)}
             disabled={steps.length === 0}
@@ -118,7 +152,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
           </filter>
         </defs>
 
-        {/* Connections Background */}
         {activeConnections.map(([from, to]) => {
           const start = getPos(from);
           const end = getPos(to);
@@ -135,7 +168,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
           );
         })}
 
-        {/* Data Packets Animation */}
         <AnimatePresence>
           {activeStepIndex >= 0 && steps[activeStepIndex] && (
             <motion.g
@@ -162,7 +194,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
           )}
         </AnimatePresence>
 
-        {/* Hardware Components */}
         {NODES.map((node) => {
           const isNextSource = !isPlaying && activeStepIndex < steps.length - 1 && steps[activeStepIndex + 1]?.from === node.id;
           const isActive = activeStepIndex >= 0 && (steps[activeStepIndex].from === node.id || steps[activeStepIndex].to === node.id);
@@ -172,9 +203,10 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
               key={node.id} 
               transform={`translate(${node.x - 24}, ${node.y - 24})`}
               className="cursor-pointer"
+              onMouseEnter={() => setHoveredNodeId(node.id)}
+              onMouseLeave={() => setHoveredNodeId(null)}
               onClick={() => handleNodeClick(node.id)}
             >
-              {/* Interaction Hint */}
               {isNextSource && (
                 <motion.rect
                   width="56" height="56"
@@ -218,7 +250,6 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
         })}
       </svg>
 
-      {/* Log Section */}
       <div className="absolute bottom-8 left-8 right-8 flex gap-4 items-end">
         <div className="bg-slate-800/90 backdrop-blur-xl border border-slate-700 p-5 rounded-[1.5rem] flex-1 flex gap-4 shadow-2xl">
           <div className="bg-blue-600/20 p-2.5 rounded-xl text-blue-400 shrink-0">
@@ -228,7 +259,7 @@ const SimulationCanvas: React.FC<SimulationCanvasProps> = ({ useCase, mode }) =>
             <div className="text-[10px] text-slate-500 font-black uppercase tracking-widest mb-1">Step Details</div>
             <div className="text-[14px] text-slate-200 font-bold leading-relaxed">
               {activeStepIndex === -1 
-                ? 'Simulation ready. Start flow to visualize requests.' 
+                ? 'Simulation ready. Hover nodes for info or start auto play.' 
                 : steps[activeStepIndex]?.label}
             </div>
           </div>

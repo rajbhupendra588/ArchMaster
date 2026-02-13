@@ -21,7 +21,8 @@ export const generateTopicDetails = async (topicId: string): Promise<HLDTopic> =
     - "queue": Message broker (RabbitMQ/Kafka).
 
     CONTENT REQUIREMENTS:
-    1. fullExplanation: Provide a deep technical dive. Mention consistency models, CAP theorem trade-offs, and multi-region strategies.
+    1. fullExplanation: Provide a DEEP technical dive. You MUST format this as a series of 5-8 distinct, logical architectural "Steps". 
+       Each step should start with "Step X: [Title]" followed by a detailed paragraph. Use double newlines to separate steps.
     2. roleInsights: Array of 3 objects (Senior, Staff, Principal).
        - Senior: Focus on clean code, unit testing, and API reliability.
        - Staff: Focus on system boundaries, cross-service communication, and SLOs/SLIs.
