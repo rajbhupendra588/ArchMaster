@@ -11,29 +11,30 @@ export const generateTopicDetails = async (topicId: string): Promise<HLDTopic> =
 
     The response must be in valid JSON format.
 
-    Strict Requirements for Simulation Consistency:
-    - You MUST only use the following IDs for simulation steps (sunnySteps and rainySteps): "client", "lb", "api", "cache", "db", "queue".
-    - "client" is the user.
-    - "lb" is the Load Balancer.
-    - "api" is the Service/Gateway.
-    - "cache" is the Redis/Memcached layer.
-    - "db" is the Database.
-    - "queue" is the Message Broker.
+    STRICT SIMULATION REQUIREMENTS:
+    - You MUST use ONLY these IDs for 'from' and 'to' fields in sunnySteps and rainySteps: "client", "lb", "api", "cache", "db", "queue".
+    - "client": The end user device.
+    - "lb": Load Balancer (Nginx/HAProxy).
+    - "api": The primary application service logic.
+    - "cache": Distributed cache (Redis/Memcached).
+    - "db": Primary persistent storage.
+    - "queue": Message broker (RabbitMQ/Kafka).
 
-    Content Requirements:
-    1. fullExplanation: Deep technical dive including consistency models (Eventual vs Strong), partition tolerance, and resource isolation.
-    2. roleInsights: Array of 3 objects (Senior, Staff, Principal). 
-       - Senior: Focus on implementation details, API contracts, and observability.
-       - Staff: Focus on cross-team dependencies, cost-benefit analysis of tech stack, and migration paths.
-       - Principal: Focus on ecosystem impact, 5-year scalability, and global reliability strategies.
-    3. mermaidHLD: A high-quality architectural diagram (Mermaid.js).
-    4. mermaidSequence: A detailed sequence diagram covering request-response, auth, and DB persistence.
-    5. useCases: At least 3 detailed scenarios. Each MUST have distinct sunnySteps and rainySteps using the IDs above.
-    6. llds: Production-quality, complete boilerplate code.
-       - Java: Use Spring Boot annotations, DTOs, Service, and Repository interfaces.
-       - Python: Use FastAPI with Pydantic models and Dependency Injection.
-       - TypeScript: Use Express/NestJS style with Interfaces and Decorators.
-       - Ensure code is "copy-paste" ready and includes meaningful comments on Design Patterns used (e.g. Strategy, Decorator, Observer).`,
+    CONTENT REQUIREMENTS:
+    1. fullExplanation: Provide a deep technical dive. Mention consistency models, CAP theorem trade-offs, and multi-region strategies.
+    2. roleInsights: Array of 3 objects (Senior, Staff, Principal).
+       - Senior: Focus on clean code, unit testing, and API reliability.
+       - Staff: Focus on system boundaries, cross-service communication, and SLOs/SLIs.
+       - Principal: Focus on architectural alignment with business goals, cost management at scale, and long-term tech debt strategy.
+    3. useCases: Define at least 3 distinct scenarios.
+       - Each scenario MUST have a 'sunnySteps' path (success) and a 'rainySteps' path (failure/exception).
+       - Describe failures like "Database Timeout", "Cache Miss with DB Overload", or "Queue full".
+    4. llds: Provide FULL, EXECUTABLE-looking code for ALL 3 languages (Java, Python, TypeScript).
+       - Java: Use Spring Boot style.
+       - Python: Use FastAPI/Pydantic style.
+       - TypeScript: Use NestJS/Express style.
+       - Include boilerplate: Controller, Service, Repository, and DTOs.
+    5. mermaidHLD & mermaidSequence: High-quality Mermaid.js code for visualization.`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -69,8 +70,8 @@ export const generateTopicDetails = async (topicId: string): Promise<HLDTopic> =
                   items: {
                     type: Type.OBJECT,
                     properties: {
-                      from: { type: Type.STRING, description: "Must be one of: client, lb, api, cache, db, queue" },
-                      to: { type: Type.STRING, description: "Must be one of: client, lb, api, cache, db, queue" },
+                      from: { type: Type.STRING },
+                      to: { type: Type.STRING },
                       label: { type: Type.STRING },
                       status: { type: Type.STRING }
                     }
@@ -81,8 +82,8 @@ export const generateTopicDetails = async (topicId: string): Promise<HLDTopic> =
                   items: {
                     type: Type.OBJECT,
                     properties: {
-                      from: { type: Type.STRING, description: "Must be one of: client, lb, api, cache, db, queue" },
-                      to: { type: Type.STRING, description: "Must be one of: client, lb, api, cache, db, queue" },
+                      from: { type: Type.STRING },
+                      to: { type: Type.STRING },
                       label: { type: Type.STRING },
                       status: { type: Type.STRING }
                     }
@@ -109,10 +110,12 @@ export const generateTopicDetails = async (topicId: string): Promise<HLDTopic> =
   });
 
   try {
-    return JSON.parse(response.text || '{}');
+    const text = response.text;
+    if (!text) throw new Error("Empty response from AI");
+    return JSON.parse(text);
   } catch (e) {
     console.error("Failed to parse Gemini response", e);
-    throw new Error("Content generation failed");
+    throw new Error("Content generation failed: " + e);
   }
 };
 
@@ -121,11 +124,9 @@ export const chatWithAi = async (message: string, context: HLDTopic | null) => {
     model: 'gemini-3-flash-preview',
     config: {
       systemInstruction: `You are ArchMaster AI, an expert software architect mentor.
-      Context: ${JSON.stringify(context)}.
-      You provide advice tailored to seniority (Senior, Staff, Principal). 
-      If asked about simulations, explain the flow from client to DB. 
-      If asked about code, break down the class hierarchies and design patterns used.
-      Always be technically rigorous and professional.`
+      Current context system: ${context ? context.title : 'None selected'}.
+      Explain HLD/LLD trade-offs, sequence flows, and code patterns. Be concise but deep.
+      Tailor responses to Senior, Staff, or Principal engineers depending on the user's focus.`
     }
   });
 
