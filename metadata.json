@@ -1,0 +1,7 @@
+{
+  "name": "ArchMaster: HLD & LLD Interactive Learning Platform",
+  "description": "A sophisticated SaaS platform for mastering system design through interactive visual simulations, multi-language LLD, automated UML diagrams, and AI-powered voice conversations.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
