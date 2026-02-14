@@ -41,6 +41,13 @@ const App: React.FC = () => {
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [simMode, setSimMode] = useState<SimulationMode>(SimulationMode.SUNNY);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedTopicId && SYSTEM_TOPICS.length > 0) {
+      setSelectedTopicId(SYSTEM_TOPICS[0].id);
+    }
+  }, [selectedTopicId]);
 
   useEffect(() => {
     if (selectedTopicId) {
@@ -50,6 +57,7 @@ const App: React.FC = () => {
 
   const loadTopic = async (id: string) => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const data = await generateTopicDetails(id);
       setTopicData(data);
@@ -60,6 +68,7 @@ const App: React.FC = () => {
       }]);
     } catch (err) {
       console.error(err);
+      setLoadError('Unable to load AI-generated content. Showing best available topic package.');
     } finally {
       setIsLoading(false);
     }
@@ -78,6 +87,7 @@ const App: React.FC = () => {
       setChatHistory(prev => [...prev, { role: 'assistant', content: reply, timestamp: Date.now() }]);
     } catch (err) {
       console.error(err);
+      setLoadError('Unable to load AI-generated content. Showing best available topic package.');
     } finally {
       setIsChatLoading(false);
     }
@@ -183,6 +193,16 @@ const App: React.FC = () => {
              </button>
           </div>
         </header>
+
+        {!import.meta.env.VITE_GEMINI_API_KEY && (
+          <div className="mx-8 mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+            Running in offline mode using built-in topic packs. Add <span className="font-bold">VITE_GEMINI_API_KEY</span> for live AI generation and chat.
+          </div>
+        )}
+
+        {loadError && (
+          <div className="mx-8 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">{loadError}</div>
+        )}
 
         {/* Dynamic Viewport */}
         {isLoading ? (
