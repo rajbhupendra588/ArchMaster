@@ -1,28 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  ChevronRight, 
-  Menu, 
-  X, 
-  Layout, 
-  Code, 
-  PlayCircle, 
-  FileText, 
-  Send,
-  Loader2,
-  Sparkles,
-  GitBranch,
-  Search,
-  BookOpen,
-  Award,
-  Terminal,
-  Target,
-  Sun,
-  CloudRain,
-  Info,
-  Server,
-  Zap,
-  CheckCircle2
+  X, Code, PlayCircle, FileText, Send, Sparkles, 
+  GitBranch, Terminal, Target, Sun, CloudRain, Info, Server, 
+  Zap, CheckCircle2, ShieldCheck, ZapIcon, PanelsTopLeft, MessageSquareText,
+  Layers, Globe, HelpCircle, Cpu, Copy, BookOpenCheck, Boxes
 } from 'lucide-react';
 import { SYSTEM_TOPICS } from './constants';
 import { HLDTopic, ChatMessage, SimulationMode } from './types';
@@ -35,40 +17,36 @@ const App: React.FC = () => {
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [topicData, setTopicData] = useState<HLDTopic | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'hld' | 'lld' | 'simulation' | 'diagrams'>('hld');
+  const [activeTab, setActiveTab] = useState<'hld' | 'diagrams' | 'simulation' | 'lld'>('hld');
   const [chatInput, setChatInput] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [simMode, setSimMode] = useState<SimulationMode>(SimulationMode.SUNNY);
+  const [activeUseCaseIndex, setActiveUseCaseIndex] = useState(0);
+  const [activeLldIndex, setActiveLldIndex] = useState(0);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
-    if (!selectedTopicId && SYSTEM_TOPICS.length > 0) {
-      setSelectedTopicId(SYSTEM_TOPICS[0].id);
-    }
-  }, [selectedTopicId]);
-
-  useEffect(() => {
-    if (selectedTopicId) {
-      loadTopic(selectedTopicId);
-    }
+    if (selectedTopicId) loadTopic(selectedTopicId);
   }, [selectedTopicId]);
 
   const loadTopic = async (id: string) => {
     setIsLoading(true);
-    setLoadError(null);
+    setActiveUseCaseIndex(0);
+    setActiveLldIndex(0);
+    setTopicData(null);
     try {
       const data = await generateTopicDetails(id);
       setTopicData(data);
       setChatHistory([{
         role: 'assistant',
-        content: `I've architected the ${data?.title}. You can now explore the HLD rationale, UML models, and interactive simulation. How can I assist you with this design?`,
+        content: `Analyzing ${data?.title}. I've identified the core architectural patterns and implementation blueprints. How can I help you master this system?`,
         timestamp: Date.now()
       }]);
     } catch (err) {
       console.error(err);
-      setLoadError('Unable to load AI-generated content. Showing best available topic package.');
     } finally {
       setIsLoading(false);
     }
@@ -76,427 +54,379 @@ const App: React.FC = () => {
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || isChatLoading) return;
-    
     const userMsg: ChatMessage = { role: 'user', content: chatInput, timestamp: Date.now() };
     setChatHistory(prev => [...prev, userMsg]);
     setChatInput('');
     setIsChatLoading(true);
-
     try {
       const reply = await chatWithAi(chatInput, topicData);
       setChatHistory(prev => [...prev, { role: 'assistant', content: reply, timestamp: Date.now() }]);
     } catch (err) {
       console.error(err);
-      setLoadError('Unable to load AI-generated content. Showing best available topic package.');
     } finally {
       setIsChatLoading(false);
     }
   };
 
-  // Helper to structure the explanation into steps
-  const hldSteps = useMemo(() => {
-    if (!topicData?.fullExplanation) return [];
-    // Split by double newline and filter empty strings
-    const segments = topicData.fullExplanation.split(/\n\n+/).filter(s => s.trim().length > 0);
-    return segments.map((text, index) => {
-      // Try to extract title if formatted like "Step X: Title"
-      const match = text.match(/Step\s+\d+:\s*(.*)\n?/i);
-      const title = match ? match[1] : `Component Phase ${index + 1}`;
-      const content = match ? text.replace(match[0], '').trim() : text.trim();
-      return { title, content };
-    });
-  }, [topicData?.fullExplanation]);
+  const levelGroups: Record<string, typeof SYSTEM_TOPICS> = useMemo(() => {
+    return {
+      'L1: Fundamentals': SYSTEM_TOPICS.filter(t => t.level === 'L1'),
+      'L2: Intermediate': SYSTEM_TOPICS.filter(t => t.level === 'L2'),
+      'L3: Advanced': SYSTEM_TOPICS.filter(t => t.level === 'L3'),
+    };
+  }, []);
+
+  const handleCopyCode = () => {
+    if (topicData?.llds[activeLldIndex]) {
+      navigator.clipboard.writeText(topicData.llds[activeLldIndex].code);
+    }
+  };
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900">
-      {/* Navigation Sidebar */}
-      <aside className={`bg-slate-900 text-white transition-all duration-300 flex flex-col border-r border-slate-800 ${isSidebarOpen ? 'w-80' : 'w-0 md:w-24 overflow-hidden'}`}>
-        <div className="p-8 flex items-center gap-4 border-b border-slate-800/50">
-          <div className="bg-blue-600 p-2.5 rounded-2xl shadow-xl shadow-blue-600/20">
-            <Server size={28} className="text-white" />
-          </div>
-          {isSidebarOpen && (
-            <div className="flex flex-col">
-              <span className="font-black text-2xl tracking-tighter bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">ArchMaster</span>
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Learn Systems</span>
-            </div>
-          )}
+    <div className="flex h-screen bg-white overflow-hidden text-slate-900">
+      {/* SIDEBAR */}
+      <aside className={`bg-slate-900 text-white transition-all duration-300 flex flex-col border-r border-slate-800 ${isSidebarOpen ? 'w-72' : 'w-0 overflow-hidden'}`}>
+        <div className="p-6 border-b border-white/10 flex items-center gap-3 shrink-0">
+          <Server size={24} className="text-blue-500" />
+          <span className="font-black text-xl tracking-tight">ArchMaster</span>
         </div>
-
-        <nav className="flex-1 p-6 flex flex-col gap-3 overflow-y-auto">
-          <div className="text-[10px] font-black text-slate-500 uppercase px-3 mb-2 tracking-[0.3em]">Curriculum</div>
-          {SYSTEM_TOPICS.map((topic) => (
-            <button
-              key={topic.id}
-              onClick={() => setSelectedTopicId(topic.id)}
-              className={`flex flex-col gap-1.5 p-4 rounded-[1.5rem] transition-all group ${selectedTopicId === topic.id ? 'bg-blue-600 text-white shadow-2xl shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
-              <div className="flex items-center gap-4">
-                <div className={`${selectedTopicId === topic.id ? 'text-white' : 'text-slate-500 group-hover:text-blue-400'} transition-colors shrink-0`}>
-                  {topic.icon}
-                </div>
-                {isSidebarOpen && <span className="text-sm font-black tracking-tight">{topic.title}</span>}
-              </div>
-              {isSidebarOpen && (
-                <div className={`text-[10px] font-black uppercase tracking-widest ml-11 ${selectedTopicId === topic.id ? 'text-blue-100/70' : 'text-slate-600'}`}>
-                  {topic.complexity}
-                </div>
-              )}
-            </button>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-8 pb-10">
+          {Object.entries(levelGroups).map(([label, topics]) => (
+            <div key={label} className="space-y-2">
+              <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-3">{label}</div>
+              {topics.map(topic => (
+                <button
+                  key={topic.id}
+                  onClick={() => setSelectedTopicId(topic.id)}
+                  className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left group ${selectedTopicId === topic.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-white/5'}`}
+                >
+                  <div className={`shrink-0 ${selectedTopicId === topic.id ? 'text-white' : 'text-slate-600 group-hover:text-blue-400'}`}>
+                    {topic.icon}
+                  </div>
+                  <div className="overflow-hidden">
+                    <div className="text-xs font-bold truncate tracking-tight">{topic.title}</div>
+                    <div className="text-[9px] opacity-50 font-black uppercase tracking-widest">{topic.category}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
-
-        <div className="p-6 border-t border-slate-800">
-          {isSidebarOpen && (
-            <div className="bg-slate-800/30 border border-slate-700/50 rounded-[2rem] p-5 space-y-3">
-               <div className="flex items-center gap-3">
-                 <Zap size={14} className="text-blue-400" />
-                 <span className="text-[10px] font-black text-slate-200 uppercase tracking-widest">Active Focus</span>
-               </div>
-               <p className="text-[13px] text-slate-400 leading-relaxed font-bold">
-                 {topicData?.title || 'Analyze architecture patterns...'}
-               </p>
-            </div>
-          )}
-        </div>
       </aside>
 
-      {/* Main Content Hub */}
-      <main className="flex-1 flex flex-col overflow-hidden bg-white">
-        {/* Top Navbar */}
-        <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 flex items-center justify-between px-10 z-30 shrink-0">
+      {/* MAIN CONTENT */}
+      <main className="flex-1 flex flex-col overflow-hidden relative bg-white">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
           <div className="flex items-center gap-6">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 hover:bg-slate-100 rounded-2xl transition-all border border-transparent hover:border-slate-200">
-              <Menu size={22} className="text-slate-600" />
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+               <PanelsTopLeft size={20} className={!isSidebarOpen ? 'rotate-180' : ''} />
             </button>
             {topicData && (
-              <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left-4">
-                <h2 className="text-xl font-black text-slate-900 tracking-tighter">{topicData?.title}</h2>
-                <div className="hidden sm:flex gap-2">
-                  <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-full uppercase border border-blue-100 tracking-widest">HLD</span>
-                  <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-black rounded-full uppercase border border-indigo-100 tracking-widest">LLD</span>
-                </div>
+              <div className="flex items-center gap-4">
+                 <h2 className="font-black text-slate-800 text-lg tracking-tight">{topicData.title}</h2>
+                 <div className="h-4 w-px bg-slate-200" />
+                 <span className="bg-blue-50 px-2.5 py-1 rounded-full text-[10px] font-black text-blue-600 uppercase tracking-widest border border-blue-100">Architecture Engine</span>
               </div>
             )}
           </div>
-          
-          <div className="flex items-center gap-6">
-             <div className="hidden lg:flex flex-col items-end">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Design Assistant</span>
-                <span className="text-xs font-bold text-green-600 flex items-center gap-2">
-                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                   Engine Active
-                </span>
-             </div>
-             <button className="p-3 bg-slate-50 text-slate-400 hover:text-blue-600 rounded-2xl border border-slate-100 transition-all">
-                <Sparkles size={20} />
-             </button>
-          </div>
+          <button onClick={() => setIsChatOpen(!isChatOpen)} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${isChatOpen ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
+             {isChatOpen ? <X size={18} /> : <MessageSquareText size={18} />}
+             <span>Mentor</span>
+          </button>
         </header>
 
-        {!import.meta.env.VITE_GEMINI_API_KEY && (
-          <div className="mx-8 mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-3 text-sm text-amber-900">
-            Running in offline mode using built-in topic packs. Add <span className="font-bold">VITE_GEMINI_API_KEY</span> for live AI generation and chat.
-          </div>
-        )}
-
-        {loadError && (
-          <div className="mx-8 mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-3 text-sm text-rose-800">{loadError}</div>
-        )}
-
-        {/* Dynamic Viewport */}
         {isLoading ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 bg-slate-50/20">
+          <div className="flex-1 flex flex-col items-center justify-center">
             <div className="relative mb-8">
-              <div className="w-24 h-24 border-4 border-slate-100 rounded-full animate-spin border-t-blue-600 shadow-xl"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                 <GitBranch size={28} className="text-blue-600 animate-pulse" />
-              </div>
+               <div className="w-24 h-24 border-4 border-slate-100 rounded-full animate-spin border-t-blue-600 shadow-xl"></div>
+               <div className="absolute inset-0 flex items-center justify-center">
+                  <Cpu size={28} className="text-blue-600 animate-pulse" />
+               </div>
             </div>
-            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">Constructing Blueprint...</h3>
-            <p className="text-slate-500 mt-2 text-lg text-center max-w-sm font-medium">Generating models, boilerplate, and interactive simulations.</p>
+            <h3 className="text-3xl font-black text-slate-900 tracking-tighter">Synthesizing System Logic...</h3>
+            <p className="text-slate-400 mt-2 text-sm font-bold tracking-widest uppercase">Mapping patterns to requirements</p>
           </div>
         ) : !topicData ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-50/50 via-white to-white">
-            <div className="bg-slate-900 p-14 rounded-[4rem] mb-12 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] rotate-3">
-              <Server size={120} className="text-white -rotate-3" />
-            </div>
-            <h1 className="text-7xl font-black text-slate-900 mb-6 tracking-tighter">Master Systems</h1>
-            <p className="max-w-xl text-slate-500 mb-16 text-2xl font-medium leading-relaxed">
-              Step into the mindset of a Principal Architect. Deep-dive into interactive simulations and multi-language LLD.
-            </p>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl w-full">
-               {[
-                 { label: 'C4 Visuals', color: 'blue' },
-                 { label: 'Boilerplate LLD', color: 'indigo' },
-                 { label: 'Cluster Sandbox', color: 'emerald' },
-                 { label: 'Role Context', color: 'amber' }
-               ].map((t, i) => (
-                 <div key={i} className={`p-6 bg-white border border-slate-100 rounded-[2.5rem] shadow-xl shadow-slate-200/40 flex items-center gap-4`}>
-                    <div className={`w-3 h-3 rounded-full bg-${t.color}-500 shadow-lg shadow-${t.color}-500/50`} />
-                    <span className="text-slate-800 font-black text-sm uppercase tracking-widest">{t.label}</span>
-                 </div>
-               ))}
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
+             <Layers size={100} className="text-slate-200 mb-10" />
+             <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tighter">System Design Lab</h1>
+             <p className="text-slate-400 max-w-md text-xl font-medium">Select a topic to start mastering architecture patterns and implementations.</p>
           </div>
         ) : (
-          <div className="flex-1 flex overflow-hidden">
-            {/* Topic Viewer */}
-            <div className="flex-1 overflow-y-auto bg-slate-50/30">
-              {/* Premium Tab Selection */}
-              <div className="sticky top-0 bg-white/60 backdrop-blur-2xl z-20 px-10 py-5 border-b border-slate-200/50">
-                <div className="flex gap-2 bg-slate-200/50 p-1.5 rounded-[1.8rem] w-fit shadow-inner border border-slate-200/40">
-                  {[
-                    { id: 'hld', label: 'Analysis', icon: <FileText size={16} /> },
-                    { id: 'diagrams', icon: <GitBranch size={16} />, label: 'Models' },
-                    { id: 'simulation', icon: <PlayCircle size={16} />, label: 'Sandbox' },
-                    { id: 'lld', icon: <Code size={16} />, label: 'Implementation' }
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={`flex items-center gap-3 px-8 py-3.5 rounded-[1.4rem] text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${activeTab === tab.id ? 'bg-white text-blue-600 shadow-xl shadow-blue-900/10 ring-1 ring-slate-100' : 'text-slate-500 hover:text-slate-900'}`}
-                    >
-                      {tab.icon} {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-10 max-w-6xl mx-auto space-y-20 pb-40">
-                {activeTab === 'hld' && (
-                  <div className="space-y-20 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <section>
-                      <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
-                        <Award size={18} className="text-blue-500" />
-                        Role-Based Engineering Perspective
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {topicData.roleInsights?.map((insight, idx) => (
-                          <div key={idx} className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-sm hover:shadow-2xl transition-all group">
-                            <div className="flex items-center gap-4 mb-6">
-                               <div className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black rounded-full uppercase tracking-[0.2em]">
-                                 {insight.role}
-                               </div>
-                            </div>
-                            <h4 className="font-black text-slate-900 text-xl mb-4 tracking-tight leading-tight">{insight.focus}</h4>
-                            <p className="text-[15px] text-slate-500 leading-relaxed font-medium">"{insight.advice}"</p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section className="space-y-10">
-                      <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center font-black text-2xl shadow-2xl">01</div>
-                        <div>
-                          <h3 className="text-4xl font-black text-slate-900 tracking-tighter">High Level Design</h3>
-                          <p className="text-slate-500 font-bold text-lg mt-1">Core architectural logic and scalability patterns.</p>
-                        </div>
-                      </div>
-                      
-                      {/* Structured Step-by-Step Detail Description */}
-                      <div className="space-y-12">
-                        {hldSteps.map((step, idx) => (
-                          <div key={idx} className="flex gap-10 group/step">
-                            <div className="flex flex-col items-center shrink-0">
-                               <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-black shadow-lg shadow-blue-600/20 group-hover/step:scale-110 transition-transform z-10">
-                                 {idx + 1}
-                               </div>
-                               {idx < hldSteps.length - 1 && (
-                                 <div className="w-1 flex-1 bg-slate-100 my-4 rounded-full group-hover/step:bg-blue-100 transition-colors" />
-                               )}
-                            </div>
-                            <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex-1 group-hover/step:border-blue-200 transition-colors">
-                               <div className="flex items-center gap-3 mb-4">
-                                  <CheckCircle2 size={20} className="text-blue-500" />
-                                  <h4 className="text-2xl font-black text-slate-900 tracking-tight">{step.title}</h4>
-                               </div>
-                               <p className="text-lg text-slate-600 leading-relaxed font-medium">
-                                 {step.content}
-                               </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  </div>
-                )}
-
-                {activeTab === 'diagrams' && (
-                  <div className="space-y-20 animate-in fade-in duration-700">
-                    <section>
-                       <div className="flex items-center justify-between mb-10">
-                         <div>
-                           <h3 className="text-3xl font-black text-slate-900 tracking-tight">C4 System Architecture</h3>
-                           <p className="text-slate-500 font-bold text-lg mt-2">Physical component layout and boundary definition.</p>
-                         </div>
-                       </div>
-                       {topicData?.mermaidHLD && <MermaidDiagram chart={topicData.mermaidHLD} />}
-                    </section>
-
-                    <section>
-                       <div className="flex items-center justify-between mb-10">
-                         <div>
-                           <h3 className="text-3xl font-black text-slate-900 tracking-tight">Execution Sequence</h3>
-                           <p className="text-slate-500 font-bold text-lg mt-2">Dynamic interaction flow and logical request cycle.</p>
-                         </div>
-                       </div>
-                       {topicData?.mermaidSequence && <MermaidDiagram chart={topicData.mermaidSequence} />}
-                    </section>
-                  </div>
-                )}
-
-                {activeTab === 'simulation' && (
-                  <div className="space-y-16 animate-in fade-in duration-700">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-100 pb-10">
-                      <div>
-                        <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Live Sandbox</h3>
-                        <p className="text-slate-500 mt-2 text-xl font-medium">Interact with components to see failure and success paths.</p>
-                      </div>
-                      <div className="flex bg-slate-100 p-2 rounded-[2rem] w-fit shadow-inner border border-slate-200/50">
-                        <button 
-                          onClick={() => setSimMode(SimulationMode.SUNNY)}
-                          className={`flex items-center gap-3 px-8 py-4 rounded-[1.6rem] text-[12px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${simMode === SimulationMode.SUNNY ? 'bg-white text-green-600 shadow-2xl shadow-green-900/10' : 'text-slate-500'}`}
-                        >
-                          <Sun size={20} /> Sunny Day
-                        </button>
-                        <button 
-                          onClick={() => setSimMode(SimulationMode.RAINY)}
-                          className={`flex items-center gap-3 px-8 py-4 rounded-[1.6rem] text-[12px] font-black uppercase tracking-[0.2em] transition-all duration-300 ${simMode === SimulationMode.RAINY ? 'bg-white text-red-600 shadow-2xl shadow-red-900/10' : 'text-slate-500'}`}
-                        >
-                          <CloudRain size={20} /> Rainy Day
-                        </button>
-                      </div>
-                    </div>
-
-                    {topicData?.useCases?.map((uc) => (
-                      <div key={uc.id} className="bg-white p-14 rounded-[4.5rem] border border-slate-100 shadow-sm space-y-12">
-                         <div className="flex items-start gap-8">
-                            <div className="bg-slate-100 p-5 rounded-[2rem] text-slate-900 shadow-inner">
-                               <Target size={36} />
-                            </div>
-                            <div>
-                               <h4 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">{uc.title}</h4>
-                               <p className="text-slate-500 leading-relaxed max-w-4xl text-xl font-medium">{uc.description}</p>
-                            </div>
-                         </div>
-                         <SimulationCanvas useCase={uc} mode={simMode} />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === 'lld' && (
-                  <div className="space-y-20 animate-in fade-in duration-700">
-                    <div className="border-b border-slate-100 pb-10">
-                       <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Core Implementations</h3>
-                       <p className="text-slate-500 mt-2 text-xl font-medium">Production-ready source code with applied design patterns.</p>
-                    </div>
-                    
-                    {topicData?.llds?.map((lld, idx) => (
-                      <div key={idx} className="bg-slate-950 rounded-[4rem] overflow-hidden shadow-[0_40px_120px_-20px_rgba(0,0,0,0.6)] border border-slate-800 group/lld transition-all hover:scale-[1.01]">
-                        <div className="px-14 py-10 bg-slate-900/80 border-b border-slate-800 flex justify-between items-center">
-                          <div className="flex items-center gap-6">
-                             <div className="bg-slate-800 p-3.5 rounded-2xl text-slate-300 border border-slate-700 shadow-xl">
-                                <Terminal size={24} />
-                             </div>
-                             <div className="flex flex-col">
-                                <span className="text-[13px] font-black text-slate-100 uppercase tracking-[0.4em]">{lld.language} MODULE</span>
-                                <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest mt-1">ENGINEERING BOILERPLATE</span>
-                             </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                             <span className="px-5 py-2 bg-green-500/10 text-green-400 text-[11px] font-black rounded-full border border-green-500/20 tracking-widest uppercase">Type-Safe</span>
-                             <span className="px-5 py-2 bg-blue-500/10 text-blue-400 text-[11px] font-black rounded-full border border-blue-500/20 tracking-widest uppercase">Pattern-Driven</span>
-                          </div>
-                        </div>
-                        <div className="p-14">
-                           <div className="relative group/code">
-                             <pre className="code-font text-blue-200/90 text-[16px] overflow-x-auto p-12 bg-black/50 rounded-[3.5rem] border border-slate-800/80 leading-[1.8] shadow-2xl">
-                               {lld.code}
-                             </pre>
-                             <button 
-                               onClick={() => navigator.clipboard.writeText(lld.code)}
-                               className="absolute top-10 right-10 opacity-0 group-hover/code:opacity-100 transition-all px-7 py-3.5 bg-white text-black text-[12px] font-black uppercase rounded-2xl shadow-2xl hover:bg-slate-100 tracking-[0.2em]"
-                             >
-                               Copy Code
-                             </button>
-                           </div>
-                           <div className="mt-14 p-12 bg-blue-500/5 border border-blue-500/20 rounded-[4rem] flex gap-10 items-start">
-                             <div className="w-20 h-20 bg-blue-600/10 text-blue-500 rounded-[2.5rem] flex items-center justify-center shrink-0 border border-blue-500/20 shadow-xl">
-                               <Sparkles size={40} />
-                             </div>
-                             <div>
-                               <h5 className="font-black text-blue-100 text-2xl mb-4 tracking-tight">Design Pattern Breakdown</h5>
-                               <p className="text-lg text-slate-400 leading-relaxed font-medium">{lld.explanation}</p>
-                             </div>
-                           </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* TABS */}
+            <div className="px-8 py-5 bg-white border-b flex gap-3 overflow-x-auto shrink-0 z-10 shadow-sm">
+              {[
+                { id: 'hld', label: 'Architecture & Patterns', icon: <FileText size={16} /> },
+                { id: 'diagrams', label: 'Blueprints', icon: <GitBranch size={16} /> },
+                { id: 'simulation', label: 'Sandbox Lab', icon: <PlayCircle size={16} /> },
+                { id: 'lld', label: 'Pattern-Based LLD', icon: <Code size={16} /> }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:bg-slate-50'}`}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* AI Mentorship Intelligence */}
-            <div className="w-[32rem] bg-white border-l border-slate-200/80 flex flex-col shadow-[0_0_100px_-20px_rgba(0,0,0,0.1)] z-40 relative">
-              <div className="p-10 border-b bg-slate-50/50 flex items-center justify-between">
-                <div className="flex items-center gap-5">
-                  <div className="p-4 bg-blue-600 rounded-[2rem] text-white shadow-2xl shadow-blue-600/30">
-                    <Sparkles size={28} />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-slate-900 tracking-tighter text-2xl uppercase">System Mentor</h3>
-                    <p className="text-[11px] text-slate-500 uppercase font-black tracking-[0.3em] mt-1">Design Intelligence</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-10 overflow-y-auto flex-1 space-y-12 bg-slate-50/20 scroll-smooth">
-                {chatHistory.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-6 duration-500`}>
-                    <div className={`max-w-[95%] p-8 rounded-[3rem] text-[17px] font-medium leading-relaxed shadow-sm border ${msg.role === 'user' ? 'bg-slate-900 text-white rounded-tr-none shadow-2xl shadow-slate-900/30 border-slate-900' : 'bg-white border-slate-200/60 text-slate-800 rounded-tl-none'}`}>
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {isChatLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-white border border-slate-200/60 p-7 rounded-[3rem] shadow-sm flex gap-3">
-                       <span className="w-3.5 h-3.5 bg-blue-500 rounded-full animate-bounce" />
-                       <span className="w-3.5 h-3.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                       <span className="w-3.5 h-3.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                    </div>
+            <div className="flex-1 overflow-y-auto p-8 lg:p-12 bg-slate-50/30">
+              <div className="max-w-6xl mx-auto space-y-20 pb-48">
+                
+                {/* ARCHITECTURE (HLD) TAB */}
+                {activeTab === 'hld' && (
+                  <div className="space-y-20 animate-in fade-in duration-500">
+                    {/* Requirements Section */}
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                       <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                          <h3 className="flex items-center gap-3 font-black text-xl mb-8 text-blue-600 uppercase tracking-tight">
+                             <Target size={24} /> Functional Req.
+                          </h3>
+                          <ul className="space-y-5">
+                             {(topicData.fr || []).map((r, i) => (
+                               <li key={i} className="flex gap-4 text-slate-600 font-semibold text-lg">
+                                  <CheckCircle2 size={20} className="text-green-500 mt-1 shrink-0" /> {r}
+                               </li>
+                             ))}
+                          </ul>
+                       </div>
+                       <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                          <h3 className="flex items-center gap-3 font-black text-xl mb-8 text-amber-600 uppercase tracking-tight">
+                             <ShieldCheck size={24} /> Quality Attributes
+                          </h3>
+                          <ul className="space-y-5">
+                             {(topicData.nfr || []).map((r, i) => (
+                               <li key={i} className="flex gap-4 text-slate-600 font-semibold text-lg">
+                                  <ZapIcon size={20} className="text-amber-500 mt-1 shrink-0" /> {r}
+                               </li>
+                             ))}
+                          </ul>
+                       </div>
+                    </section>
+
+                    {/* DESIGN PATTERNS SECTION - NEW */}
+                    <section className="space-y-10">
+                       <div className="flex items-center gap-4">
+                          <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-xl shadow-indigo-600/20"><Boxes size={28} /></div>
+                          <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Design Patterns Inventory</h3>
+                       </div>
+                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          {(topicData.designPatterns || []).map((pattern, i) => (
+                             <div key={i} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-md group hover:border-indigo-500 transition-all duration-300">
+                                <div className="flex items-center gap-4 mb-6">
+                                   <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><BookOpenCheck size={24} /></div>
+                                   <h4 className="text-2xl font-black text-slate-900 tracking-tight">{pattern.name}</h4>
+                                </div>
+                                <div className="space-y-6">
+                                   <div>
+                                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Rationale (WHY)</h5>
+                                      <p className="text-slate-600 font-medium leading-relaxed">{pattern.why}</p>
+                                   </div>
+                                   <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100">
+                                      <h5 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-2">Architectural Benefit</h5>
+                                      <p className="text-slate-800 font-bold leading-relaxed">{pattern.benefit}</p>
+                                   </div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </section>
+
+                    {/* Architecture Walkthrough Section */}
+                    <section className="space-y-10">
+                       <h3 className="text-4xl font-black text-slate-900 tracking-tighter">Architecture Walkthrough</h3>
+                       <div className="space-y-8">
+                          {(topicData.fullExplanation || []).map((step, i) => (
+                             <div key={i} className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm">
+                                <div className="flex flex-col lg:flex-row gap-12">
+                                   <div className="lg:w-1/2 space-y-6">
+                                      <span className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg">Phase 0{i+1}</span>
+                                      <h4 className="text-3xl font-black text-slate-900 tracking-tight">{step.stepTitle}</h4>
+                                      <p className="text-slate-500 text-lg font-medium leading-relaxed">{step.description}</p>
+                                   </div>
+                                   <div className="lg:w-1/2 space-y-6 flex flex-col justify-center">
+                                      <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+                                         <h5 className="text-[11px] font-black text-blue-600 uppercase tracking-widest mb-3">Real-World Logic</h5>
+                                         <p className="text-slate-700 font-bold italic">"{step.realTimeExample}"</p>
+                                      </div>
+                                      <div className="bg-amber-50/50 p-8 rounded-[2rem] border border-amber-100/50">
+                                         <h5 className="text-[11px] font-black text-amber-600 uppercase tracking-widest mb-3">Trade-off & Rationale</h5>
+                                         <p className="text-slate-700 font-bold">{step.tradeOff}</p>
+                                      </div>
+                                   </div>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
+                    </section>
                   </div>
                 )}
-              </div>
 
-              <div className="p-10 bg-white border-t border-slate-200/80 space-y-10 shadow-[0_-30px_60px_-15px_rgba(0,0,0,0.03)]">
-                 <VoicePanel contextTopic={topicData?.title || 'System Design'} />
-                 <div className="relative group">
-                    <input 
-                      type="text" 
-                      placeholder="Discuss trade-offs or design choices..."
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                      className="w-full bg-slate-100/80 border border-slate-200/50 rounded-[2.5rem] py-7 pl-10 pr-24 text-[17px] focus:ring-4 focus:ring-blue-500/10 focus:bg-white transition-all outline-none font-bold placeholder:text-slate-400 shadow-inner"
-                    />
-                    <button 
-                      onClick={handleSendMessage}
-                      disabled={isChatLoading}
-                      className="absolute right-4 top-4 p-4 bg-blue-600 text-white rounded-[1.5rem] hover:bg-blue-700 transition-all disabled:opacity-50 shadow-2xl shadow-blue-600/40"
-                    >
-                      <Send size={28} />
-                    </button>
-                 </div>
+                {/* DIAGRAMS TAB */}
+                {activeTab === 'diagrams' && (
+                  <div className="space-y-24 animate-in fade-in duration-500">
+                    <section className="space-y-8">
+                       <h3 className="text-3xl font-black text-slate-900 tracking-tight border-b border-slate-100 pb-6">C4 Structural Perspective</h3>
+                       {topicData.mermaidHLD ? <MermaidDiagram chart={topicData.mermaidHLD} /> : <div className="p-20 text-center text-slate-400 font-bold">Structural view pending...</div>}
+                    </section>
+                    <section className="space-y-8">
+                       <h3 className="text-3xl font-black text-slate-900 tracking-tight border-b border-slate-100 pb-6">Sequence Interaction Workflow</h3>
+                       {topicData.mermaidSequence ? <MermaidDiagram chart={topicData.mermaidSequence} /> : <div className="p-20 text-center text-slate-400 font-bold">Sequence logic pending...</div>}
+                    </section>
+                  </div>
+                )}
+
+                {/* SIMULATION TAB */}
+                {activeTab === 'simulation' && (
+                  <div className="space-y-12 animate-in fade-in duration-500">
+                    <div className="flex flex-col lg:flex-row gap-8 justify-between items-end border-b border-slate-100 pb-12">
+                       <div className="space-y-2">
+                          <h3 className="text-4xl font-black text-slate-900 tracking-tight">Sandbox Environment</h3>
+                          <p className="text-slate-400 font-bold text-lg">Live traffic simulation & component introspection.</p>
+                       </div>
+                       {topicData.useCases && topicData.useCases.length > 0 && (
+                        <div className="flex gap-4">
+                           <div className="flex bg-slate-100 p-2 rounded-2xl shadow-inner border border-slate-200/50">
+                              {topicData.useCases.map((uc, i) => (
+                                <button
+                                  key={i}
+                                  onClick={() => setActiveUseCaseIndex(i)}
+                                  className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeUseCaseIndex === i ? 'bg-white text-blue-600 shadow-md' : 'text-slate-400'}`}
+                                >
+                                  {uc.title}
+                                </button>
+                              ))}
+                           </div>
+                           <div className="flex bg-slate-100 p-2 rounded-2xl shadow-inner border border-slate-200/50">
+                              <button onClick={() => setSimMode(SimulationMode.SUNNY)} className={`p-3 rounded-xl transition-all ${simMode === SimulationMode.SUNNY ? 'bg-green-100 text-green-700 shadow-md' : 'text-slate-400'}`}><Sun size={20} /></button>
+                              <button onClick={() => setSimMode(SimulationMode.RAINY)} className={`p-3 rounded-xl transition-all ${simMode === SimulationMode.RAINY ? 'bg-red-100 text-red-700 shadow-md' : 'text-slate-400'}`}><CloudRain size={20} /></button>
+                           </div>
+                        </div>
+                       )}
+                    </div>
+                    {topicData.useCases && topicData.useCases[activeUseCaseIndex] ? (
+                      <SimulationCanvas useCase={topicData.useCases[activeUseCaseIndex]} mode={simMode} nodes={topicData.nodes || []} />
+                    ) : (
+                      <div className="bg-slate-900 h-[500px] rounded-[3rem] flex items-center justify-center">
+                        <p className="text-slate-500 font-bold uppercase tracking-widest">Environment synthesis in progress...</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* IMPLEMENTATION (LLD) TAB */}
+                {activeTab === 'lld' && (
+                  <div className="space-y-12 animate-in fade-in duration-500">
+                    <div className="flex flex-col lg:flex-row gap-8 justify-between items-end border-b border-slate-100 pb-12">
+                       <div className="space-y-2">
+                          <h3 className="text-4xl font-black text-slate-900 tracking-tight">Implementation Blueprints</h3>
+                          <p className="text-slate-400 font-bold text-lg">Structured source code using enterprise design patterns.</p>
+                       </div>
+                       {topicData.llds && topicData.llds.length > 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide max-w-xl">
+                           {topicData.llds.map((lld, i) => (
+                              <button
+                                key={lld.language}
+                                onClick={() => setActiveLldIndex(i)}
+                                className={`px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${activeLldIndex === i ? 'bg-slate-900 text-white shadow-2xl' : 'bg-white text-slate-400 border-slate-100'}`}
+                              >
+                                {lld.language}
+                              </button>
+                           ))}
+                        </div>
+                       )}
+                    </div>
+
+                    {topicData.llds && topicData.llds[activeLldIndex] ? (
+                      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                        <div className="xl:col-span-2 space-y-4">
+                          <div className="bg-slate-950 rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/5">
+                            <div className="px-10 py-6 border-b border-white/5 flex justify-between items-center bg-white/5 backdrop-blur-md">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-3 bg-blue-600/20 rounded-2xl text-blue-400"><Terminal size={20} /></div>
+                                  <span className="text-white font-black uppercase tracking-widest text-sm">{topicData.llds[activeLldIndex].language} Source</span>
+                                </div>
+                                <button onClick={handleCopyCode} className="p-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all"><Copy size={18}/></button>
+                            </div>
+                            <div className="p-1">
+                                <pre className="p-10 code-font text-blue-200/90 text-sm leading-relaxed overflow-x-auto bg-black/40 rounded-[2rem] scrollbar-hide min-h-[500px]">
+                                  {topicData.llds[activeLldIndex].code}
+                                </pre>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-8">
+                           <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                              <div className="p-4 bg-blue-50 rounded-2xl text-blue-600 w-fit mb-6"><Sparkles size={32} /></div>
+                              <h5 className="text-xl font-black text-slate-900 tracking-tight mb-4 uppercase">Implementation Pattern</h5>
+                              <p className="text-slate-600 font-medium leading-relaxed">{topicData.llds[activeLldIndex].explanation}</p>
+                           </div>
+                           <div className="bg-slate-900 p-10 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden group">
+                              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform"><Cpu size={120} /></div>
+                              <h5 className="text-xs font-black text-blue-400 uppercase tracking-widest mb-4">Architecture Insight</h5>
+                              <p className="text-slate-300 font-bold leading-relaxed relative z-10">This implementation utilizes modern concurrency models and abstract factory patterns to ensure horizontal scalability at the service layer.</p>
+                           </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-20 text-center text-slate-400 font-bold">Generating structured implementations...</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </main>
+
+      {/* CHAT SIDEBAR */}
+      <aside className={`bg-white border-l border-slate-200 transition-all duration-300 flex flex-col shadow-2xl relative ${isChatOpen ? 'w-[450px]' : 'w-0 overflow-hidden'}`}>
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+           <div className="flex items-center gap-4">
+              <div className="bg-blue-600 p-3 rounded-2xl text-white"><Sparkles size={20} /></div>
+              <span className="font-black text-slate-800 tracking-tight text-xl">Architect Mentor</span>
+           </div>
+           <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-slate-200 rounded-lg text-slate-400"><X size={20} /></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 bg-slate-50/20">
+          {chatHistory.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
+              <div className={`max-w-[90%] p-6 rounded-[2rem] text-[15px] font-semibold leading-relaxed shadow-sm border ${msg.role === 'user' ? 'bg-slate-900 text-white' : 'bg-white text-slate-800'}`}>
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {isChatLoading && (
+             <div className="flex justify-start">
+                <div className="bg-white border p-5 rounded-2xl shadow-sm flex gap-2">
+                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.2s]" />
+                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0.4s]" />
+                </div>
+             </div>
+          )}
+        </div>
+
+        <div className="p-8 bg-white border-t border-slate-100 space-y-8 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
+          <VoicePanel contextTopic={topicData?.title || 'System Design'} />
+          <div className="relative">
+             <input
+               type="text"
+               value={chatInput}
+               onChange={(e) => setChatInput(e.target.value)}
+               onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+               placeholder="Ask about trade-offs..."
+               className="w-full bg-slate-100 border border-slate-200 rounded-[1.8rem] py-6 px-8 text-sm font-bold outline-none focus:bg-white focus:ring-4 focus:ring-blue-500/10 transition-all shadow-inner"
+             />
+             <button onClick={handleSendMessage} disabled={isChatLoading} className="absolute right-3 top-3 p-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-transform active:scale-95 disabled:opacity-50">
+                <Send size={18} />
+             </button>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 };

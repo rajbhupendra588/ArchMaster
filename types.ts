@@ -7,7 +7,7 @@ export enum SimulationMode {
 export interface ComponentNode {
   id: string;
   name: string;
-  type: 'client' | 'loadbalancer' | 'service' | 'database' | 'cache' | 'queue';
+  type: 'client' | 'loadbalancer' | 'service' | 'database' | 'cache' | 'queue' | 'cdn' | 'storage';
   x: number;
   y: number;
 }
@@ -33,22 +33,32 @@ export interface LLD {
   explanation: string;
 }
 
-export interface RoleInsight {
-  role: 'Senior' | 'Staff' | 'Principal';
-  focus: string;
-  advice: string;
+export interface DesignPattern {
+  name: string;
+  why: string;
+  benefit: string;
+}
+
+export interface HLDStep {
+  stepTitle: string;
+  description: string;
+  realTimeExample: string;
+  tradeOff: string;
 }
 
 export interface HLDTopic {
   id: string;
   title: string;
   shortDescription: string;
-  fullExplanation: string;
-  roleInsights: RoleInsight[];
+  fr: string[]; 
+  nfr: string[];
+  fullExplanation: HLDStep[];
   useCases: UseCase[];
   llds: LLD[];
+  designPatterns: DesignPattern[]; // New field for architectural/design patterns
   mermaidHLD: string;
   mermaidSequence: string;
+  nodes: ComponentNode[];
 }
 
 export interface ChatMessage {

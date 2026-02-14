@@ -66,12 +66,7 @@ const VoicePanel: React.FC<{ contextTopic: string }> = ({ contextTopic }) => {
   const startSession = async () => {
     try {
       // Initialize GoogleGenAI with the API key from process.env.API_KEY
-      const key = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!key) {
-        setTranscription('Voice mode requires VITE_GEMINI_API_KEY. Add it to .env.local and reload.');
-        return;
-      }
-      const ai = new GoogleGenAI({ apiKey: key });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
